@@ -25,6 +25,7 @@ from datasets import dataset_factory
 from deployment import model_deploy
 from nets import nets_factory
 from preprocessing import preprocessing_factory
+from tensorflow.python.training import saver as tf_saver
 
 slim = tf.contrib.slim
 
@@ -49,11 +50,11 @@ tf.app.flags.DEFINE_integer(
     'are handled locally by the worker.')
 
 tf.app.flags.DEFINE_integer(
-    'num_readers', 4,
+    'num_readers', 1,
     'The number of parallel readers that read data from the dataset.')
 
 tf.app.flags.DEFINE_integer(
-    'num_preprocessing_threads', 4,
+    'num_preprocessing_threads', 1,
     'The number of threads used to create the batches.')
 
 tf.app.flags.DEFINE_integer(
@@ -110,7 +111,6 @@ tf.app.flags.DEFINE_float(
 
 tf.app.flags.DEFINE_float(
     'ftrl_l1', 0.0, 'The FTRL l1 regularization strength.')
-
 tf.app.flags.DEFINE_float(
     'ftrl_l2', 0.0, 'The FTRL l2 regularization strength.')
 
@@ -188,7 +188,7 @@ tf.app.flags.DEFINE_string(
     'as `None`, then the model_name flag is used.')
 
 tf.app.flags.DEFINE_integer(
-    'batch_size', 32, 'The number of samples in each batch.')
+    'batch_size', 8, 'The number of samples in each batch.')
 
 tf.app.flags.DEFINE_integer(
     'train_image_size', None, 'Train image size')
@@ -352,6 +352,7 @@ def _get_init_fn():
     excluded = False
     for exclusion in exclusions:
       if var.op.name.startswith(exclusion):
+        tf.logging.info('Excluding %s' % var)
         excluded = True
         break
     if not excluded:
@@ -361,7 +362,7 @@ def _get_init_fn():
     checkpoint_path = tf.train.latest_checkpoint(FLAGS.checkpoint_path)
   else:
     checkpoint_path = FLAGS.checkpoint_path
-
+  print('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
   tf.logging.info('Fine-tuning from %s' % checkpoint_path)
 
   return slim.assign_from_checkpoint_fn(
@@ -411,9 +412,10 @@ def main(_):
     ######################
     # Select the dataset #
     ######################
-    dataset = dataset_factory.get_dataset(
-        FLAGS.dataset_name, FLAGS.dataset_split_name, FLAGS.dataset_dir)
+    dataset = dataset_factory.get_dataset(FLAGS.dataset_name, FLAGS.dataset_split_name, FLAGS.dataset_dir) #,file_pattern='flowers_%s_*.tfrecord')
 
+    #print(dataset.num_classes)
+  
     ####################
     # Select the network #
     ####################
@@ -564,6 +566,9 @@ def main(_):
     summary_op = tf.merge_summary(list(summaries), name='summary_op')
 
 
+    # 
+    saver_op = tf_saver.Saver(max_to_keep=10, keep_checkpoint_every_n_hours=2)
+
     ###########################
     # Kicks off the training. #
     ###########################
@@ -578,6 +583,7 @@ def main(_):
         log_every_n_steps=FLAGS.log_every_n_steps,
         save_summaries_secs=FLAGS.save_summaries_secs,
         save_interval_secs=FLAGS.save_interval_secs,
+        saver=saver_op,
         sync_optimizer=optimizer if FLAGS.sync_replicas else None)
 
 

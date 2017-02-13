@@ -95,7 +95,8 @@ def main(_):
     ######################
     dataset = dataset_factory.get_dataset(
         FLAGS.dataset_name, FLAGS.dataset_split_name, FLAGS.dataset_dir)
-
+    #print(dataset.num_classes)
+    #exit()
     ####################
     # Select the model #
     ####################
@@ -170,6 +171,8 @@ def main(_):
     else:
       # This ensures that we make a single pass over all of the data.
       num_batches = math.ceil(dataset.num_samples / float(FLAGS.batch_size))
+
+    #print(dataset.num_samples, FLAGS.batch_size, num_batches)
 
     if tf.gfile.IsDirectory(FLAGS.checkpoint_path):
       checkpoint_path = tf.train.latest_checkpoint(FLAGS.checkpoint_path)
